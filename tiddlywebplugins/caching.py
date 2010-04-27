@@ -5,8 +5,7 @@ from tiddlyweb.store import Store as StoreBoss
 from tiddlyweb.stores import StorageInterface
 from tiddlyweb.model.bag import Bag
 from tiddlyweb.model.tiddler import Tiddler
-
-from urllib import quote
+from tiddlyweb.util import sha
 
 class Store(StorageInterface):
 
@@ -188,7 +187,7 @@ class Store(StorageInterface):
 
     def _mangle(self, key):
         key = '%s:%s:%s' % (self.host, self.prefix, key)
-        return quote(key.encode('UTF-8'), safe='')
+        return sha(key.encode('UTF-8')).hexdigest()
 
 
     def _get(self, key):
