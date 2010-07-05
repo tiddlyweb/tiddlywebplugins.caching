@@ -66,17 +66,26 @@ class Store(StorageInterface):
     def bag_delete(self, bag):
         key = self._bag_key(bag)
         if self._mc.delete(key):
-            tiddlers_in_bag = bag.list_tiddlers()
+            try:
+                tiddlers_in_bag = bag.list_tiddlers()
+            except AttributeError:
+                tiddlers_in_bag = self.list_bag_tiddlers(bag)
             for tiddler in tiddlers_in_bag:
                 self._mc.delete_multi([self._tiddler_revision_key(
                     self._create_tiddler_revision(tiddler, revision_id)) for
                     revision_id in self.list_tiddler_revisions(tiddler)])
+            # reset the generators 
+            try:
+                tiddlers_in_bag = bag.list_tiddlers()
+            except AttributeError:
+                tiddlers_in_bag = self.list_bag_tiddlers(bag)
             self._mc.delete_multi([self._tiddler_key(tiddler) for
                 tiddler in tiddlers_in_bag])
         self.cached_store.delete(bag)
 
     def bag_get(self, bag):
-        if (hasattr(bag, 'skinny') and bag.skinny):
+        if ((not hasattr(bag, 'list_tiddlers')) or (
+            hasattr(bag, 'skinny') and bag.skinny)):
             key = self._bag_key(bag)
             cached_bag = self._get(key)
             if cached_bag:
@@ -156,6 +165,9 @@ class Store(StorageInterface):
     def list_users(self):
         return self.cached_store.list_users()
 
+    def list_bag_tiddlers(self, bag):
+        return self.cached_store.list_bag_tiddlers(bag)
+
     def list_tiddler_revisions(self, tiddler):
         return self.cached_store.list_tiddler_revisions(tiddler)
 
@@ -190,7 +202,6 @@ class Store(StorageInterface):
     def _mangle(self, key):
         key = '%s:%s:%s' % (self.host, self.prefix, key)
         return sha(key.encode('UTF-8')).hexdigest()
-
 
     def _get(self, key):
         object = self._mc.get(key)
