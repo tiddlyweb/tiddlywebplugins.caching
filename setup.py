@@ -2,7 +2,7 @@ AUTHOR = 'Chris Dent'
 AUTHOR_EMAIL = 'cdent@peermore.com'
 NAME = 'tiddlywebplugins.caching'
 DESCRIPTION = 'A wrapping store caching entities in memcached.'
-VERSION = '0.8'
+VERSION = '0.9'
 
 
 import os
