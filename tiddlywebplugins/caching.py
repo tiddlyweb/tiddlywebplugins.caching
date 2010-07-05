@@ -28,11 +28,13 @@ class Store(StorageInterface):
             except ImportError:
                 import memcache
                 try:
-                    self._MC = memcache.Client(self.config['memcache_hosts'])
+                    self._MC = memcache.Client(self.config.get(
+                        'memcache_hosts', ['127.0.0.1:11211']))
                 except KeyError:
                     from tiddlyweb.config import config
                     self.config = config
-                    self._MC = memcache.Client(self.config['memcache_hosts'])
+                    self._MC = memcache.Client(self.config.get(
+                        'memcache_hosts', ['127.0.0.1:11211']))
             self._mc = self._MC
 
             self.cached_store = StoreBoss(self.config['cached_store'][0],
