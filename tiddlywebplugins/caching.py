@@ -210,12 +210,7 @@ class Store(StorageInterface):
         return sha(key.encode('UTF-8')).hexdigest()
 
     def _get(self, key):
-        object = self._mc.get(key)
-        if object:
-            logging.debug('cache hit for %s' % key)
-        else:
-            logging.debug('cache miss for %s' % key)
-        return object
+        return self._mc.get(key)
 
 
 def init(config):
