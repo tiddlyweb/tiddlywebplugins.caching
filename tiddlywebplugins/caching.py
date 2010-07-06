@@ -3,9 +3,13 @@ import logging
 
 from tiddlyweb.store import Store as StoreBoss
 from tiddlyweb.stores import StorageInterface
+from tiddlyweb.manage import make_command
 from tiddlyweb.model.bag import Bag
 from tiddlyweb.model.tiddler import Tiddler
 from tiddlyweb.util import sha
+
+from tiddlywebplugins.utils import get_store
+
 
 class Store(StorageInterface):
 
@@ -74,7 +78,7 @@ class Store(StorageInterface):
                 self._mc.delete_multi([self._tiddler_revision_key(
                     self._create_tiddler_revision(tiddler, revision_id)) for
                     revision_id in self.list_tiddler_revisions(tiddler)])
-            # reset the generators 
+            # reset the generators
             try:
                 tiddlers_in_bag = bag.list_tiddlers()
             except AttributeError:
@@ -109,7 +113,8 @@ class Store(StorageInterface):
 
         if self._mc.delete(key):
             self._mc.delete(self._bag_key(Bag(tiddler.bag)))
-            self._mc.delete_multi([self._tiddler_revision_key(self._create_tiddler_revision(
+            self._mc.delete_multi([self._tiddler_revision_key(
+                self._create_tiddler_revision(
                 tiddler, revision_id)) for revision_id in
                 self.list_tiddler_revisions(tiddler)])
         self.cached_store.delete(tiddler)
@@ -184,7 +189,8 @@ class Store(StorageInterface):
         return self._mangle(key)
 
     def _tiddler_revision_key(self, tiddler):
-        key = 'tiddler:%s/%s/%s' % (tiddler.bag, tiddler.title, tiddler.revision)
+        key = 'tiddler:%s/%s/%s' % (tiddler.bag, tiddler.title,
+                tiddler.revision)
         return self._mangle(key)
 
     def _user_key(self, user):
@@ -210,3 +216,13 @@ class Store(StorageInterface):
         else:
             logging.debug('cache miss for %s' % key)
         return object
+
+
+def init(config):
+
+    @make_command()
+    def memcachestats(args):
+        """dump the memcachestats"""
+        from pprint import pprint
+        store = get_store(config)
+        pprint(store.storage._mc.get_stats())
