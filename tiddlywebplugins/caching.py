@@ -11,6 +11,9 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
+__version__ = '0.9.2'
+
+
 class Store(StorageInterface):
 
     _MC = None
@@ -41,10 +44,10 @@ class Store(StorageInterface):
                         'memcache_hosts', ['127.0.0.1:11211']))
             self._mc = self._MC
 
-            self.cached_store = StoreBoss(self.config['cached_store'][0],
-                    self.config['cached_store'][1], environ=environ)
-            self.prefix = self.config['server_prefix']
-            self.host = self.config['server_host']['host']
+        self.cached_store = StoreBoss(self.config['cached_store'][0],
+                self.config['cached_store'][1], environ=environ)
+        self.prefix = self.config['server_prefix']
+        self.host = self.config['server_host']['host']
 
     def recipe_delete(self, recipe):
         key = self._recipe_key(recipe)
