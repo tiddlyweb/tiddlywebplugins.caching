@@ -44,15 +44,16 @@ class Store(StorageInterface):
                         'memcache_hosts', ['127.0.0.1:11211']))
             self._mc = self._MC
 
-        self.cached_store = StoreBoss(self.config['cached_store'][0],
+        cached_store = StoreBoss(self.config['cached_store'][0],
                 self.config['cached_store'][1], environ=environ)
+        self.cached_storage = cached_store.storage
         self.prefix = self.config['server_prefix']
         self.host = self.config['server_host']['host']
 
     def recipe_delete(self, recipe):
         key = self._recipe_key(recipe)
         self._mc.delete(key)
-        self.cached_store.delete(recipe)
+        self.cached_storage.recipe_delete(recipe)
 
     def recipe_get(self, recipe):
         key = self._recipe_key(recipe)
@@ -60,14 +61,14 @@ class Store(StorageInterface):
         if cached_recipe:
             recipe = cached_recipe
         else:
-            recipe = self.cached_store.get(recipe)
+            recipe = self.cached_storage.recipe_get(recipe)
             del recipe.store
             self._mc.set(key, recipe)
         return recipe
 
     def recipe_put(self, recipe):
         key = self._recipe_key(recipe)
-        self.cached_store.put(recipe)
+        self.cached_storage.recipe_put(recipe)
         self._mc.delete(key)
 
     def bag_delete(self, bag):
@@ -88,7 +89,7 @@ class Store(StorageInterface):
                 tiddlers_in_bag = self.list_bag_tiddlers(bag)
             self._mc.delete_multi([self._tiddler_key(tiddler) for
                 tiddler in tiddlers_in_bag])
-        self.cached_store.delete(bag)
+        self.cached_storage.bag_delete(bag)
 
     def bag_get(self, bag):
         if ((not hasattr(bag, 'list_tiddlers')) or (
@@ -98,17 +99,17 @@ class Store(StorageInterface):
             if cached_bag:
                 bag = cached_bag
             else:
-                bag = self.cached_store.get(bag)
+                bag = self.cached_storage.bag_get(bag)
                 del bag.store
                 self._mc.set(key, bag)
         else:
-            bag = self.cached_store.get(bag)
+            bag = self.cached_storage.bag_get(bag)
             del bag.store
         return bag
 
     def bag_put(self, bag):
         key = self._bag_key(bag)
-        self.cached_store.put(bag)
+        self.cached_storage.bag_put(bag)
         self._mc.delete(key)
 
     def tiddler_delete(self, tiddler):
@@ -120,7 +121,7 @@ class Store(StorageInterface):
                 self._create_tiddler_revision(
                 tiddler, revision_id)) for revision_id in
                 self.list_tiddler_revisions(tiddler)])
-        self.cached_store.delete(tiddler)
+        self.cached_storage.tiddler_delete(tiddler)
 
     def tiddler_get(self, tiddler):
         if not tiddler.revision or tiddler.revision == 0:
@@ -129,24 +130,26 @@ class Store(StorageInterface):
             key = self._tiddler_revision_key(tiddler)
         cached_tiddler = self._get(key)
         if cached_tiddler:
+            logging.debug('satisfying tiddler_get with cache %s:%s', tiddler.bag, tiddler.title)
             cached_tiddler.recipe = tiddler.recipe
             tiddler = cached_tiddler
         else:
-            tiddler = self.cached_store.get(tiddler)
+            logging.debug('satisfying tiddler_get with data %s:%s', tiddler.bag, tiddler.title)
+            tiddler = self.cached_storage.tiddler_get(tiddler)
             del tiddler.store
             self._mc.set(key, tiddler)
         return tiddler
 
     def tiddler_put(self, tiddler):
         key = self._tiddler_key(tiddler)
-        self.cached_store.put(tiddler)
+        self.cached_storage.tiddler_put(tiddler)
         self._mc.delete(self._bag_key(Bag(tiddler.bag)))
         self._mc.delete(key)
 
     def user_delete(self, user):
         key = self._user_key(user)
         self._mc.delete(key)
-        self.cached_store.delete(user)
+        self.cached_storage.user_delete(user)
 
     def user_get(self, user):
         key = self._user_key(user)
@@ -154,33 +157,33 @@ class Store(StorageInterface):
         if cached_user:
             user = cached_user
         else:
-            user = self.cached_store.get(user)
+            user = self.cached_storage.user_get(user)
             del user.store
             self._mc.set(key, user)
         return user
 
     def user_put(self, user):
         key = self._user_key(user)
-        self.cached_store.put(user)
+        self.cached_storage.user_put(user)
         self._mc.delete(key)
 
     def list_recipes(self):
-        return self.cached_store.list_recipes()
+        return self.cached_storage.list_recipes()
 
     def list_bags(self):
-        return self.cached_store.list_bags()
+        return self.cached_storage.list_bags()
 
     def list_users(self):
-        return self.cached_store.list_users()
+        return self.cached_storage.list_users()
 
     def list_bag_tiddlers(self, bag):
-        return self.cached_store.list_bag_tiddlers(bag)
+        return self.cached_storage.list_bag_tiddlers(bag)
 
     def list_tiddler_revisions(self, tiddler):
-        return self.cached_store.list_tiddler_revisions(tiddler)
+        return self.cached_storage.list_tiddler_revisions(tiddler)
 
     def search(self, search_query):
-        return self.cached_store.search(search_query)
+        return self.cached_storage.search(search_query)
 
     def _create_tiddler_revision(self, tiddler, revision_id):
         revision = Tiddler(tiddler.title, tiddler.bag)
