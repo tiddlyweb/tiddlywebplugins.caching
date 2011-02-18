@@ -1,7 +1,8 @@
 
 import logging
+import uuid
 
-from tiddlyweb.store import Store as StoreBoss
+from tiddlyweb.store import Store as StoreBoss, HOOKS
 from tiddlyweb.stores import StorageInterface
 from tiddlyweb.manage import make_command
 from tiddlyweb.model.bag import Bag
@@ -11,7 +12,85 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
-__version__ = '0.9.3'
+__version__ = '0.9.4'
+
+
+ANY_NAMESPACE = 'any_namespace'
+BAGS_NAMESPACE = 'bags_namespace'
+RECIPES_NAMESPACE = 'recipes_namespace'
+USERS_NAMESPACE = 'users_namespace'
+
+
+def container_namespace_key(container, container_name=''):
+    if not container_name:
+        key = '%s_namespace' % container
+    else:
+        key = '%s:%s_namespace' % (container, container_name)
+    return key.encode('UTF-8', 'replace')
+
+
+def tiddler_change_hook(store, tiddler):
+    bag_name = tiddler.bag
+    title = tiddler.title
+    any_key = ANY_NAMESPACE
+    bag_key = container_namespace_key('bags', bag_name)
+    logging.debug('%s tiddler change resetting namespace keys, %s, %s',
+            __name__, any_key, bag_key)
+    # This get_store is required to work around confusion with what
+    # store is current.
+    top_store = get_store(store.environ['tiddlyweb.config'])
+    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(bag_key.encode('utf8'), '%s' % uuid.uuid4())
+
+
+def bag_change_hook(store, bag):
+    bag_name = bag.name
+    any_key = ANY_NAMESPACE
+    bags_key = BAGS_NAMESPACE
+    bag_key = container_namespace_key('bags', bag_name)
+    logging.debug('%s bag change resetting namespace keys, %s, %s, %s',
+            __name__, any_key, bags_key, bag_key)
+    top_store = get_store(store.environ['tiddlyweb.config'])
+    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(bag_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(bags_key.encode('utf8'), '%s' % uuid.uuid4())
+
+
+def recipe_change_hook(store, recipe):
+    recipe_name = recipe.name
+    any_key = ANY_NAMESPACE
+    recipes_key = RECIPES_NAMESPACE
+    recipe_key = container_namespace_key('recipes', recipe_name)
+    logging.debug('%s: %s recipe change resetting namespace keys, %s, %s, %s',
+            store.storage, __name__, any_key, recipes_key, recipe_key)
+    top_store = get_store(store.environ['tiddlyweb.config'])
+    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(recipe_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(recipes_key.encode('utf8'), '%s' % uuid.uuid4())
+
+
+def user_change_hook(store, user):
+    user_name = user.usersign
+    any_key = ANY_NAMESPACE
+    users_key = USERS_NAMESPACE
+    user_key = container_namespace_key('users', user_name)
+    logging.debug('%s: %s user change resetting namespace keys, %s, %s, %s',
+            store.storage, __name__, any_key, users_key, user_key)
+    top_store = get_store(store.environ['tiddlyweb.config'])
+    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(user_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage._mc.set(users_key.encode('utf8'), '%s' % uuid.uuid4())
+
+
+# Establish the hooks that will reset namespaces
+HOOKS['tiddler']['put'].append(tiddler_change_hook)
+HOOKS['tiddler']['delete'].append(tiddler_change_hook)
+HOOKS['bag']['put'].append(bag_change_hook)
+HOOKS['bag']['delete'].append(bag_change_hook)
+HOOKS['recipe']['put'].append(recipe_change_hook)
+HOOKS['recipe']['delete'].append(recipe_change_hook)
+HOOKS['user']['put'].append(user_change_hook)
+HOOKS['user']['delete'].append(user_change_hook)
 
 
 class Store(StorageInterface):
@@ -62,7 +141,10 @@ class Store(StorageInterface):
             recipe = cached_recipe
         else:
             recipe = self.cached_storage.recipe_get(recipe)
-            del recipe.store
+            try:
+                del recipe.store
+            except AttributeError:
+                pass
             self._mc.set(key, recipe)
         return recipe
 
@@ -72,55 +154,32 @@ class Store(StorageInterface):
         self._mc.delete(key)
 
     def bag_delete(self, bag):
-        key = self._bag_key(bag)
-        if self._mc.delete(key):
-            try:
-                tiddlers_in_bag = bag.list_tiddlers()
-            except AttributeError:
-                tiddlers_in_bag = self.list_bag_tiddlers(bag)
-            for tiddler in tiddlers_in_bag:
-                self._mc.delete_multi([self._tiddler_revision_key(
-                    self._create_tiddler_revision(tiddler, revision_id)) for
-                    revision_id in self.list_tiddler_revisions(tiddler)])
-            # reset the generators
-            try:
-                tiddlers_in_bag = bag.list_tiddlers()
-            except AttributeError:
-                tiddlers_in_bag = self.list_bag_tiddlers(bag)
-            self._mc.delete_multi([self._tiddler_key(tiddler) for
-                tiddler in tiddlers_in_bag])
+        # we don't need to delete tiddler from the cache, name spacing
+        # will do that
         self.cached_storage.bag_delete(bag)
 
     def bag_get(self, bag):
-        if ((not hasattr(bag, 'list_tiddlers')) or (
-            hasattr(bag, 'skinny') and bag.skinny)):
-            key = self._bag_key(bag)
-            cached_bag = self._get(key)
-            if cached_bag:
-                bag = cached_bag
-            else:
-                bag = self.cached_storage.bag_get(bag)
-                del bag.store
-                self._mc.set(key, bag)
+        key = self._bag_key(bag)
+        cached_bag = self._get(key)
+        if cached_bag:
+            bag = cached_bag
         else:
             bag = self.cached_storage.bag_get(bag)
-            del bag.store
+            try:
+                del bag.store
+            except AttributeError:
+                pass
+            self._mc.set(key, bag)
         return bag
 
     def bag_put(self, bag):
         key = self._bag_key(bag)
         self.cached_storage.bag_put(bag)
-        self._mc.delete(key)
+        # we don't need to delete from the cache, namespace will
+        # handle that
 
     def tiddler_delete(self, tiddler):
-        key = self._tiddler_key(tiddler)
-
-        if self._mc.delete(key):
-            self._mc.delete(self._bag_key(Bag(tiddler.bag)))
-            self._mc.delete_multi([self._tiddler_revision_key(
-                self._create_tiddler_revision(
-                tiddler, revision_id)) for revision_id in
-                self.list_tiddler_revisions(tiddler)])
+        # XXX what about revisions?
         self.cached_storage.tiddler_delete(tiddler)
 
     def tiddler_get(self, tiddler):
@@ -130,26 +189,28 @@ class Store(StorageInterface):
             key = self._tiddler_revision_key(tiddler)
         cached_tiddler = self._get(key)
         if cached_tiddler:
-            logging.debug('satisfying tiddler_get with cache %s:%s', tiddler.bag, tiddler.title)
+            logging.debug('satisfying tiddler_get with cache %s:%s',
+                    tiddler.bag, tiddler.title)
             cached_tiddler.recipe = tiddler.recipe
             tiddler = cached_tiddler
         else:
-            logging.debug('satisfying tiddler_get with data %s:%s', tiddler.bag, tiddler.title)
+            logging.debug('satisfying tiddler_get with data %s:%s',
+                    tiddler.bag, tiddler.title)
             tiddler = self.cached_storage.tiddler_get(tiddler)
-            del tiddler.store
+            try:
+                del tiddler.store
+            except AttributeError:
+                pass
             self._mc.set(key, tiddler)
         return tiddler
 
     def tiddler_put(self, tiddler):
-        key = self._tiddler_key(tiddler)
         self.cached_storage.tiddler_put(tiddler)
-        self._mc.delete(self._bag_key(Bag(tiddler.bag)))
-        self._mc.delete(key)
+        # let hooks take care of cleaning cache
 
     def user_delete(self, user):
-        key = self._user_key(user)
-        self._mc.delete(key)
         self.cached_storage.user_delete(user)
+        # let hooks take care of cleaning cache
 
     def user_get(self, user):
         key = self._user_key(user)
@@ -158,14 +219,15 @@ class Store(StorageInterface):
             user = cached_user
         else:
             user = self.cached_storage.user_get(user)
-            del user.store
+            try:
+                del user.store
+            except AttributeError:
+                pass
             self._mc.set(key, user)
         return user
 
     def user_put(self, user):
-        key = self._user_key(user)
         self.cached_storage.user_put(user)
-        self._mc.delete(key)
 
     def list_recipes(self):
         return self.cached_storage.list_recipes()
@@ -185,37 +247,36 @@ class Store(StorageInterface):
     def search(self, search_query):
         return self.cached_storage.search(search_query)
 
-    def _create_tiddler_revision(self, tiddler, revision_id):
-        revision = Tiddler(tiddler.title, tiddler.bag)
-        revision.revision = revision_id
-        return revision
-
     def _tiddler_key(self, tiddler):
-        key = 'tiddler:%s/%s' % (tiddler.bag, tiddler.title)
-        return self._mangle(key)
+        return self._mangle('bags', tiddler.bag, tiddler.title)
 
     def _tiddler_revision_key(self, tiddler):
-        key = 'tiddler:%s/%s/%s' % (tiddler.bag, tiddler.title,
-                tiddler.revision)
-        return self._mangle(key)
+        key = '%s/%s' % (tiddler.title, tiddler.revision)
+        return self._mangle('bags', tiddler.bag, key)
 
     def _user_key(self, user):
-        key = 'user:%s' % user.usersign
-        return self._mangle(key)
+        return self._mangle('users', user.usersign)
 
     def _bag_key(self, bag):
-        key = 'bag:%s' % bag.name
-        return self._mangle(key)
+        return self._mangle('bags', bag.name)
 
     def _recipe_key(self, recipe):
-        key = 'recipe:%s' % recipe.name
-        return self._mangle(key)
+        return self._mangle('recipes', recipe.name)
 
-    def _mangle(self, key):
-        key = '%s:%s:%s' % (self.host, self.prefix, key)
-        return sha(key.encode('UTF-8')).hexdigest()
+    def _mangle(self, container, container_name='', descendant=''):
+        namespace_key = container_namespace_key(container, container_name)
+        namespace = self._mc.get(namespace_key)
+        if not namespace:
+            namespace = '%s' % uuid.uuid4()
+            logging.debug('%s no namespace for %s, setting to %s', __name__,
+                    namespace_key, namespace)
+            self._mc.set(namespace_key.encode('utf8'), namespace)
+        key = '%s/%s/%s' % (container, container_name, descendant)
+        fullkey = '%s:%s:%s:%s' % (namespace, self.host, self.prefix, key)
+        return sha(fullkey.encode('UTF-8')).hexdigest()
 
     def _get(self, key):
+        logging.warn('trying cache key %s', key)
         return self._mc.get(key)
 
 
