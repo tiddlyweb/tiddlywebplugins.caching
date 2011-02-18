@@ -12,7 +12,7 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
-__version__ = '0.9.4'
+__version__ = '0.9.5'
 
 
 ANY_NAMESPACE = 'any_namespace'
@@ -276,7 +276,6 @@ class Store(StorageInterface):
         return sha(fullkey.encode('UTF-8')).hexdigest()
 
     def _get(self, key):
-        logging.warn('trying cache key %s', key)
         return self._mc.get(key)
 
 
