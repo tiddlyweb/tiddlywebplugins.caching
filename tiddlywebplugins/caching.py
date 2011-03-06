@@ -26,7 +26,7 @@ def container_namespace_key(container, container_name=''):
         key = '%s_namespace' % container
     else:
         key = '%s:%s_namespace' % (container, container_name)
-    return key.encode('UTF-8', 'replace')
+    return sha(key.encode('UTF-8', 'replace')).hexdigest()
 
 
 def tiddler_change_hook(store, tiddler):
