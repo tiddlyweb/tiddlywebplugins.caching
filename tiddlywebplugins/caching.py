@@ -263,7 +263,7 @@ class Store(StorageInterface):
     def _recipe_key(self, recipe):
         return self._mangle('recipes', recipe.name)
 
-    def _mangle(self, container, container_name='', descendant=''):
+    def _mangle(self, container, container_name='', descendant=None):
         namespace_key = container_namespace_key(container, container_name)
         namespace = self._mc.get(namespace_key)
         if not namespace:
@@ -271,7 +271,9 @@ class Store(StorageInterface):
             logging.debug('%s no namespace for %s, setting to %s', __name__,
                     namespace_key, namespace)
             self._mc.set(namespace_key.encode('utf8'), namespace)
-        key = '%s/%s/%s' % (container, container_name, descendant)
+        key = '/'.join([container, container_name])
+        if descendant is not None:
+            key = key + '/%s' % descendant
         fullkey = '%s:%s:%s:%s' % (namespace, self.host, self.prefix, key)
         return sha(fullkey.encode('UTF-8')).hexdigest()
 
