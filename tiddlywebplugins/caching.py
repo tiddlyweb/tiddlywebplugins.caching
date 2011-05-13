@@ -2,10 +2,10 @@
 import logging
 import uuid
 
-from tiddlyweb.store import Store as StoreBoss, HOOKS
+from tiddlyweb.store import (Store as StoreBoss, HOOKS,
+        StoreError, NoTiddlerError)
 from tiddlyweb.stores import StorageInterface
 from tiddlyweb.manage import make_command
-from tiddlyweb.model.bag import Bag
 from tiddlyweb.model.tiddler import Tiddler
 from tiddlyweb.util import sha
 
@@ -122,6 +122,8 @@ class Store(StorageInterface):
                     self._MC = memcache.Client(self.config.get(
                         'memcache_hosts', ['127.0.0.1:11211']))
             self._mc = self._MC
+            self._dne_text = sha(self.config.get('secret',
+                'abc123')).hexdigest()
 
         cached_store = StoreBoss(self.config['cached_store'][0],
                 self.config['cached_store'][1], environ=environ)
@@ -189,19 +191,30 @@ class Store(StorageInterface):
             key = self._tiddler_revision_key(tiddler)
         cached_tiddler = self._get(key)
         if cached_tiddler:
+            if cached_tiddler.text == self._dne_text:
+                raise NoTiddlerError('Tiddler %s:%s:%s not found' %
+                        (cached_tiddler.bag,
+                           cached_tiddler.title,
+                           cached_tiddler.revision))
             logging.debug('satisfying tiddler_get with cache %s:%s',
                     tiddler.bag, tiddler.title)
             cached_tiddler.recipe = tiddler.recipe
             tiddler = cached_tiddler
         else:
-            logging.debug('satisfying tiddler_get with data %s:%s',
-                    tiddler.bag, tiddler.title)
-            tiddler = self.cached_storage.tiddler_get(tiddler)
             try:
-                del tiddler.store
-            except AttributeError:
-                pass
-            self._mc.set(key, tiddler)
+                logging.debug('satisfying tiddler_get with data %s:%s',
+                        tiddler.bag, tiddler.title)
+                tiddler = self.cached_storage.tiddler_get(tiddler)
+                try:
+                    del tiddler.store
+                except AttributeError:
+                    pass
+                self._mc.set(key, tiddler)
+            except StoreError, exc:
+                dne_tiddler = Tiddler(tiddler.title, tiddler.bag)
+                dne_tiddler.text = self._dne_text
+                self._mc.set(key, dne_tiddler)
+                raise
         return tiddler
 
     def tiddler_put(self, tiddler):
