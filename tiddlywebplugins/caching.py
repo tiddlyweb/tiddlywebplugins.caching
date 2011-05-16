@@ -15,10 +15,10 @@ from tiddlywebplugins.utils import get_store
 __version__ = '0.9.8'
 
 
-ANY_NAMESPACE = 'any_namespace'
-BAGS_NAMESPACE = 'bags_namespace'
-RECIPES_NAMESPACE = 'recipes_namespace'
-USERS_NAMESPACE = 'users_namespace'
+ANY_NAMESPACE = 'any'
+BAGS_NAMESPACE = 'bags'
+RECIPES_NAMESPACE = 'recipes'
+USERS_NAMESPACE = 'users'
 
 
 def container_namespace_key(container, container_name=''):
@@ -32,7 +32,7 @@ def container_namespace_key(container, container_name=''):
 def tiddler_change_hook(store, tiddler):
     bag_name = tiddler.bag
     title = tiddler.title
-    any_key = ANY_NAMESPACE
+    any_key = container_namespace_key(ANY_NAMESPACE)
     bag_key = container_namespace_key('bags', bag_name)
     logging.debug('%s tiddler change resetting namespace keys, %s, %s',
             __name__, any_key, bag_key)
@@ -45,8 +45,8 @@ def tiddler_change_hook(store, tiddler):
 
 def bag_change_hook(store, bag):
     bag_name = bag.name
-    any_key = ANY_NAMESPACE
-    bags_key = BAGS_NAMESPACE
+    any_key = container_namespace_key(ANY_NAMESPACE)
+    bags_key = container_namespace_key(BAGS_NAMESPACE)
     bag_key = container_namespace_key('bags', bag_name)
     logging.debug('%s bag change resetting namespace keys, %s, %s, %s',
             __name__, any_key, bags_key, bag_key)
@@ -58,8 +58,8 @@ def bag_change_hook(store, bag):
 
 def recipe_change_hook(store, recipe):
     recipe_name = recipe.name
-    any_key = ANY_NAMESPACE
-    recipes_key = RECIPES_NAMESPACE
+    any_key = container_namespace_key(ANY_NAMESPACE)
+    recipes_key = container_namespace_key(RECIPES_NAMESPACE)
     recipe_key = container_namespace_key('recipes', recipe_name)
     logging.debug('%s: %s recipe change resetting namespace keys, %s, %s, %s',
             store.storage, __name__, any_key, recipes_key, recipe_key)
@@ -71,8 +71,8 @@ def recipe_change_hook(store, recipe):
 
 def user_change_hook(store, user):
     user_name = user.usersign
-    any_key = ANY_NAMESPACE
-    users_key = USERS_NAMESPACE
+    any_key = container_namespace_key(ANY_NAMESPACE)
+    users_key = container_namespace_key(USERS_NAMESPACE)
     user_key = container_namespace_key('users', user_name)
     logging.debug('%s: %s user change resetting namespace keys, %s, %s, %s',
             store.storage, __name__, any_key, users_key, user_key)
@@ -243,13 +243,34 @@ class Store(StorageInterface):
         self.cached_storage.user_put(user)
 
     def list_recipes(self):
-        return self.cached_storage.list_recipes()
+        key = self._recipes_key()
+        cached_recipes = self._get(key)
+        if cached_recipes:
+            recipes = cached_recipes
+        else:
+            recipes = list(self.cached_storage.list_recipes())
+            self._mc.set(key, recipes)
+        return recipes
 
     def list_bags(self):
-        return self.cached_storage.list_bags()
+        key = self._bags_key()
+        cached_bags = self._get(key)
+        if cached_bags:
+            bags = cached_bags
+        else:
+            bags = list(self.cached_storage.list_bags())
+            self._mc.set(key, bags)
+        return bags
 
     def list_users(self):
-        return self.cached_storage.list_users()
+        key = self._users_key()
+        cached_users = self._get(key)
+        if cached_users:
+            users = cached_users
+        else:
+            bags = list(self.cached_storage.list_users())
+            self._mc.set(key, users)
+        return users
 
     def list_bag_tiddlers(self, bag):
         return self.cached_storage.list_bag_tiddlers(bag)
@@ -275,6 +296,15 @@ class Store(StorageInterface):
 
     def _recipe_key(self, recipe):
         return self._mangle('recipes', recipe.name)
+
+    def _bags_key(self):
+        return self._mangle('bags')
+
+    def _recipes_key(self):
+        return self._mangle('recipes')
+
+    def _users_key(self):
+        return self._mangle('users')
 
     def _mangle(self, container, container_name='', descendant=None):
         namespace_key = container_namespace_key(container, container_name)

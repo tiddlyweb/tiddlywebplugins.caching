@@ -73,3 +73,11 @@ def test_get_bag():
         retrieved = Bag('thing')
         retrieved = store.get(retrieved)
         assert retrieved.desc == 'stuff'
+
+def test_get_bags():
+    bags = store.list_bags()
+    bags = store.list_bags()
+    for name in ['alpha', 'beta', 'gamma']:
+        store.put(Bag(name))
+    bags = store.list_bags()
+    assert 'alpha' in [bag.name for bag in bags]
