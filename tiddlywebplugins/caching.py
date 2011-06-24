@@ -12,7 +12,7 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
-__version__ = '0.9.9'
+__version__ = '0.9.10'
 
 
 ANY_NAMESPACE = 'any'
