@@ -268,7 +268,7 @@ class Store(StorageInterface):
         if cached_users:
             users = cached_users
         else:
-            bags = list(self.cached_storage.list_users())
+            users = list(self.cached_storage.list_users())
             self._mc.set(key, users)
         return users
 

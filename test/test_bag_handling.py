@@ -19,7 +19,7 @@ def setup_module(module):
             environ={'tiddlyweb.config': config})
     try:
         bag = Bag('holder')
-        store.delete(bag)
+        module.store.delete(bag)
     except:
         pass
     bag = Bag('holder')
