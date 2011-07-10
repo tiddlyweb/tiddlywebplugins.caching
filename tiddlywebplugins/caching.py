@@ -12,7 +12,7 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
-__version__ = '0.9.10'
+__version__ = '0.9.11'
 
 
 ANY_NAMESPACE = 'any'
@@ -243,34 +243,43 @@ class Store(StorageInterface):
         self.cached_storage.user_put(user)
 
     def list_recipes(self):
-        key = self._recipes_key()
-        cached_recipes = self._get(key)
-        if cached_recipes:
-            recipes = cached_recipes
+        if self.config.get('memcache.cache_lists', False):
+            key = self._recipes_key()
+            cached_recipes = self._get(key)
+            if cached_recipes:
+                recipes = cached_recipes
+            else:
+                recipes = list(self.cached_storage.list_recipes())
+                self._mc.set(key, recipes)
+            return recipes
         else:
-            recipes = list(self.cached_storage.list_recipes())
-            self._mc.set(key, recipes)
-        return recipes
+            return self.cached_storage.list_recipes()
 
     def list_bags(self):
-        key = self._bags_key()
-        cached_bags = self._get(key)
-        if cached_bags:
-            bags = cached_bags
+        if self.config.get('memcache.cache_lists', False):
+            key = self._bags_key()
+            cached_bags = self._get(key)
+            if cached_bags:
+                bags = cached_bags
+            else:
+                bags = list(self.cached_storage.list_bags())
+                self._mc.set(key, bags)
+            return bags
         else:
-            bags = list(self.cached_storage.list_bags())
-            self._mc.set(key, bags)
-        return bags
+            return self.cached_storage.list_bags()
 
     def list_users(self):
-        key = self._users_key()
-        cached_users = self._get(key)
-        if cached_users:
-            users = cached_users
+        if self.config.get('memcache.cache_lists', False):
+            key = self._users_key()
+            cached_users = self._get(key)
+            if cached_users:
+                users = cached_users
+            else:
+                users = list(self.cached_storage.list_users())
+                self._mc.set(key, users)
+            return users
         else:
-            users = list(self.cached_storage.list_users())
-            self._mc.set(key, users)
-        return users
+            return self.cached_storage.list_users()
 
     def list_bag_tiddlers(self, bag):
         return self.cached_storage.list_bag_tiddlers(bag)
