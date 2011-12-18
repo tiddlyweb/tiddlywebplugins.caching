@@ -23,14 +23,14 @@ def setup_module(module):
 
     module.store = Store(config['server_store'][0], config['server_store'][1],
             environ={'tiddlyweb.config': config})
-    module.store.storage._mc.flush_all()
+    module.store.storage.mc.flush_all()
 
 
 
 def test_memcache_up():
-    store.storage._mc.set('keyone', 'valueone')
-    assert store.storage._mc.get('keyone') == 'valueone'
-    store.storage._mc.delete('keyone')
+    store.storage.mc.set('keyone', 'valueone')
+    assert store.storage.mc.get('keyone') == 'valueone'
+    store.storage.mc.delete('keyone')
 
 
 def test_list_users():

@@ -31,7 +31,6 @@ def container_namespace_key(container, container_name=''):
 
 def tiddler_change_hook(store, tiddler):
     bag_name = tiddler.bag
-    title = tiddler.title
     any_key = container_namespace_key(ANY_NAMESPACE)
     bag_key = container_namespace_key('bags', bag_name)
     logging.debug('%s tiddler change resetting namespace keys, %s, %s',
@@ -39,8 +38,8 @@ def tiddler_change_hook(store, tiddler):
     # This get_store is required to work around confusion with what
     # store is current.
     top_store = get_store(store.environ['tiddlyweb.config'])
-    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(bag_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(bag_key.encode('utf8'), '%s' % uuid.uuid4())
 
 
 def bag_change_hook(store, bag):
@@ -51,9 +50,9 @@ def bag_change_hook(store, bag):
     logging.debug('%s bag change resetting namespace keys, %s, %s, %s',
             __name__, any_key, bags_key, bag_key)
     top_store = get_store(store.environ['tiddlyweb.config'])
-    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(bag_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(bags_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(bag_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(bags_key.encode('utf8'), '%s' % uuid.uuid4())
 
 
 def recipe_change_hook(store, recipe):
@@ -64,9 +63,9 @@ def recipe_change_hook(store, recipe):
     logging.debug('%s: %s recipe change resetting namespace keys, %s, %s, %s',
             store.storage, __name__, any_key, recipes_key, recipe_key)
     top_store = get_store(store.environ['tiddlyweb.config'])
-    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(recipe_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(recipes_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(recipe_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(recipes_key.encode('utf8'), '%s' % uuid.uuid4())
 
 
 def user_change_hook(store, user):
@@ -77,9 +76,9 @@ def user_change_hook(store, user):
     logging.debug('%s: %s user change resetting namespace keys, %s, %s, %s',
             store.storage, __name__, any_key, users_key, user_key)
     top_store = get_store(store.environ['tiddlyweb.config'])
-    top_store.storage._mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(user_key.encode('utf8'), '%s' % uuid.uuid4())
-    top_store.storage._mc.set(users_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(user_key.encode('utf8'), '%s' % uuid.uuid4())
+    top_store.storage.mc.set(users_key.encode('utf8'), '%s' % uuid.uuid4())
 
 
 # Establish the hooks that will reset namespaces
@@ -105,23 +104,30 @@ class Store(StorageInterface):
         self.environ = environ
         self.config = environ.get('tiddlyweb.config')
 
-        self._mc = self._MC
+        self.mc = self._MC
 
-        if self._mc == None:
+        if self.mc == None:
             try:
                 from google.appengine.api import memcache
                 self._MC = memcache
             except ImportError:
-                import memcache
+                kwargs = {}
+                try:
+                    import pylibmc as memcache
+                    kwargs = {'binary': True}
+                except ImportError:
+                    import memcache
                 try:
                     self._MC = memcache.Client(self.config.get(
-                        'memcache_hosts', ['127.0.0.1:11211']))
+                        'memcache_hosts', ['127.0.0.1:11211']),
+                        **kwargs)
                 except KeyError:
                     from tiddlyweb.config import config
                     self.config = config
                     self._MC = memcache.Client(self.config.get(
-                        'memcache_hosts', ['127.0.0.1:11211']))
-            self._mc = self._MC
+                        'memcache_hosts', ['127.0.0.1:11211']),
+                        **kwargs)
+            self.mc = self._MC
             self._dne_text = sha(self.config.get('secret',
                 'abc123')).hexdigest()
 
@@ -133,7 +139,7 @@ class Store(StorageInterface):
 
     def recipe_delete(self, recipe):
         key = self._recipe_key(recipe)
-        self._mc.delete(key)
+        self.mc.delete(key)
         self.cached_storage.recipe_delete(recipe)
 
     def recipe_get(self, recipe):
@@ -147,13 +153,13 @@ class Store(StorageInterface):
                 del recipe.store
             except AttributeError:
                 pass
-            self._mc.set(key, recipe)
+            self.mc.set(key, recipe)
         return recipe
 
     def recipe_put(self, recipe):
         key = self._recipe_key(recipe)
         self.cached_storage.recipe_put(recipe)
-        self._mc.delete(key)
+        self.mc.delete(key)
 
     def bag_delete(self, bag):
         # we don't need to delete tiddler from the cache, name spacing
@@ -171,7 +177,7 @@ class Store(StorageInterface):
                 del bag.store
             except AttributeError:
                 pass
-            self._mc.set(key, bag)
+            self.mc.set(key, bag)
         return bag
 
     def bag_put(self, bag):
@@ -209,11 +215,11 @@ class Store(StorageInterface):
                     del tiddler.store
                 except AttributeError:
                     pass
-                self._mc.set(key, tiddler)
+                self.mc.set(key, tiddler)
             except StoreError, exc:
                 dne_tiddler = Tiddler(tiddler.title, tiddler.bag)
                 dne_tiddler.text = self._dne_text
-                self._mc.set(key, dne_tiddler)
+                self.mc.set(key, dne_tiddler)
                 raise
         return tiddler
 
@@ -236,7 +242,7 @@ class Store(StorageInterface):
                 del user.store
             except AttributeError:
                 pass
-            self._mc.set(key, user)
+            self.mc.set(key, user)
         return user
 
     def user_put(self, user):
@@ -250,7 +256,7 @@ class Store(StorageInterface):
                 recipes = cached_recipes
             else:
                 recipes = list(self.cached_storage.list_recipes())
-                self._mc.set(key, recipes)
+                self.mc.set(key, recipes)
             return recipes
         else:
             return self.cached_storage.list_recipes()
@@ -263,7 +269,7 @@ class Store(StorageInterface):
                 bags = cached_bags
             else:
                 bags = list(self.cached_storage.list_bags())
-                self._mc.set(key, bags)
+                self.mc.set(key, bags)
             return bags
         else:
             return self.cached_storage.list_bags()
@@ -276,7 +282,7 @@ class Store(StorageInterface):
                 users = cached_users
             else:
                 users = list(self.cached_storage.list_users())
-                self._mc.set(key, users)
+                self.mc.set(key, users)
             return users
         else:
             return self.cached_storage.list_users()
@@ -317,12 +323,12 @@ class Store(StorageInterface):
 
     def _mangle(self, container, container_name='', descendant=None):
         namespace_key = container_namespace_key(container, container_name)
-        namespace = self._mc.get(namespace_key)
+        namespace = self.mc.get(namespace_key)
         if not namespace:
             namespace = '%s' % uuid.uuid4()
             logging.debug('%s no namespace for %s, setting to %s', __name__,
                     namespace_key, namespace)
-            self._mc.set(namespace_key.encode('utf8'), namespace)
+            self.mc.set(namespace_key.encode('utf8'), namespace)
         key = '/'.join([container, container_name])
         if descendant is not None:
             key = key + '/%s' % descendant
@@ -330,7 +336,7 @@ class Store(StorageInterface):
         return sha(fullkey.encode('UTF-8')).hexdigest()
 
     def _get(self, key):
-        return self._mc.get(key)
+        return self.mc.get(key)
 
 
 def init(config):
@@ -340,4 +346,4 @@ def init(config):
         """dump the memcachestats"""
         from pprint import pprint
         store = get_store(config)
-        pprint(store.storage._mc.get_stats())
+        pprint(store.storage.mc.get_stats())

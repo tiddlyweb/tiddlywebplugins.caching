@@ -27,9 +27,9 @@ def setup_module(module):
 
 
 def test_memcache_up():
-    store.storage._mc.set('keyone', 'valueone')
-    assert store.storage._mc.get('keyone') == 'valueone'
-    store.storage._mc.delete('keyone')
+    store.storage.mc.set('keyone', 'valueone')
+    assert store.storage.mc.get('keyone') == 'valueone'
+    store.storage.mc.delete('keyone')
 
 
 def test_put_get_tiddlers():
