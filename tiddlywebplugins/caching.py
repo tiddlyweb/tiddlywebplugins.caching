@@ -257,7 +257,7 @@ class Store(StorageInterface):
             else:
                 recipes = list(self.cached_storage.list_recipes())
                 self.mc.set(key, recipes)
-            return recipes
+            return iter(recipes)
         else:
             return self.cached_storage.list_recipes()
 
@@ -270,7 +270,7 @@ class Store(StorageInterface):
             else:
                 bags = list(self.cached_storage.list_bags())
                 self.mc.set(key, bags)
-            return bags
+            return iter(bags)
         else:
             return self.cached_storage.list_bags()
 
@@ -283,11 +283,20 @@ class Store(StorageInterface):
             else:
                 users = list(self.cached_storage.list_users())
                 self.mc.set(key, users)
-            return users
+            return iter(users)
         else:
             return self.cached_storage.list_users()
 
     def list_bag_tiddlers(self, bag):
+        if self.config.get('memcache.cache_lists', False):
+            key = self._bag_tiddlers_key(bag.name)
+            cached_tiddlers = self._get(key)
+            if cached_tiddlers:
+                tiddlers = cached_tiddlers
+            else:
+                tiddlers = list(self.cached_storage.list_bag_tiddlers(bag))
+                self.mc.set(key, tiddlers)
+            return iter(tiddlers)
         return self.cached_storage.list_bag_tiddlers(bag)
 
     def list_tiddler_revisions(self, tiddler):
@@ -298,6 +307,9 @@ class Store(StorageInterface):
 
     def _tiddler_key(self, tiddler):
         return self._mangle('bags', tiddler.bag, tiddler.title)
+
+    def _bag_tiddlers_key(self, bag_name):
+        return self._mangle('bags', bag_name, 'bags/tiddlers')
 
     def _tiddler_revision_key(self, tiddler):
         key = '%s/%s' % (tiddler.title, tiddler.revision)

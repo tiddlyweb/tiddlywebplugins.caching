@@ -26,7 +26,6 @@ def setup_module(module):
     module.store.storage.mc.flush_all()
 
 
-
 def test_memcache_up():
     store.storage.mc.set('keyone', 'valueone')
     assert store.storage.mc.get('keyone') == 'valueone'
@@ -37,25 +36,25 @@ def test_list_users():
     user = User('monkey')
     store.put(user)
 
-    users = store.list_users()
+    users = list(store.list_users())
     assert len(users) == 1
 
     store.get(users[0])
     store.delete(user)
 
-    users = store.list_users()
+    users = list(store.list_users())
     assert len(users) == 0
 
 def test_list_recipes():
     recipe = Recipe('monkey')
     store.put(recipe)
 
-    recipes = store.list_recipes()
+    recipes = list(store.list_recipes())
     assert len(recipes) == 1
 
     store.get(recipes[0])
     store.delete(recipe)
 
-    recipes = store.list_recipes()
+    recipes = list(store.list_recipes())
     assert len(recipes) == 0
 

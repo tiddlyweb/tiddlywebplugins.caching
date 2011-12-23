@@ -4,6 +4,7 @@ not being deleted from the cache properly.
 This test confirms it is fixed. In the process
 it should confirm generally workingness.
 """
+import os, shutil
 
 from tiddlyweb.config import config
 from tiddlyweb.store import Store, NoTiddlerError
@@ -15,6 +16,8 @@ import py.test
 
 
 def setup_module(module):
+    if os.path.exists('store'):
+        shutil.rmtree('store')
     module.store = Store(config['server_store'][0], config['server_store'][1],
             environ={'tiddlyweb.config': config})
     try:
@@ -81,3 +84,24 @@ def test_get_bags():
         store.put(Bag(name))
     bags = store.list_bags()
     assert 'alpha' in [bag.name for bag in bags]
+
+def test_listing_tiddlers():
+    for title in ['hi', 'bye', 'greetings', 'salutations']:
+        tiddler = Tiddler(title, 'thing')
+        tiddler.text = title
+        store.put(tiddler)
+
+    tiddlers1 = list(store.list_bag_tiddlers(Bag('thing')))
+    tiddlers2 = list(store.list_bag_tiddlers(Bag('thing')))
+
+    assert len(tiddlers1) == len(tiddlers2)
+
+    tiddler = Tiddler('adios', 'thing')
+    tiddler.text = 'adios'
+    store.put(tiddler)
+
+    tiddlers3 = list(store.list_bag_tiddlers(Bag('thing')))
+    tiddlers4 = list(store.list_bag_tiddlers(Bag('thing')))
+
+    assert len(tiddlers1) != len(tiddlers3)
+    assert len(tiddlers3) == len(tiddlers4)
