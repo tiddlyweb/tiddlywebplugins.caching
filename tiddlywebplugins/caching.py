@@ -163,8 +163,10 @@ class Store(StorageInterface):
         self.mc.delete(key)
 
     def bag_delete(self, bag):
-        # we don't need to delete tiddler from the cache, name spacing
+        # we don't need to delete tiddlers from the cache, name spacing
         # will do that
+        key = self._bag_key(bag)
+        self.mc.delete(key)
         self.cached_storage.bag_delete(bag)
 
     def bag_get(self, bag):
@@ -183,12 +185,12 @@ class Store(StorageInterface):
 
     def bag_put(self, bag):
         key = self._bag_key(bag)
+        self.mc.delete(key)
         self.cached_storage.bag_put(bag)
-        # we don't need to delete from the cache, namespace will
-        # handle that
 
     def tiddler_delete(self, tiddler):
-        # XXX what about revisions?
+        key = self._tiddler_key(tiddler)
+        self.mc.delete(key)
         self.cached_storage.tiddler_delete(tiddler)
 
     def tiddler_get(self, tiddler):
@@ -225,12 +227,14 @@ class Store(StorageInterface):
         return tiddler
 
     def tiddler_put(self, tiddler):
+        key = self._tiddler_key(tiddler)
+        self.mc.delete(key)
         self.cached_storage.tiddler_put(tiddler)
-        # let hooks take care of cleaning cache
 
     def user_delete(self, user):
+        key = self._user_key(user)
+        self.mc.delete(key)
         self.cached_storage.user_delete(user)
-        # let hooks take care of cleaning cache
 
     def user_get(self, user):
         key = self._user_key(user)
@@ -247,6 +251,8 @@ class Store(StorageInterface):
         return user
 
     def user_put(self, user):
+        key = self._user_key(user)
+        self.mc.delete(key)
         self.cached_storage.user_put(user)
 
     def list_recipes(self):
