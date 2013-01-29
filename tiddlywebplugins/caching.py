@@ -12,13 +12,16 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
-__version__ = '0.9.15'
+__version__ = '0.9.16'
 
 
 ANY_NAMESPACE = 'any'
 BAGS_NAMESPACE = 'bags'
 RECIPES_NAMESPACE = 'recipes'
 USERS_NAMESPACE = 'users'
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def container_namespace_key(container, container_name=''):
@@ -33,7 +36,7 @@ def tiddler_change_hook(store, tiddler):
     bag_name = tiddler.bag
     any_key = container_namespace_key(ANY_NAMESPACE)
     bag_key = container_namespace_key('bags', bag_name)
-    logging.debug('%s tiddler change resetting namespace keys, %s, %s',
+    LOGGER.debug('%s tiddler change resetting namespace keys, %s, %s',
             __name__, any_key, bag_key)
     # This get_store is required to work around confusion with what
     # store is current.
@@ -47,7 +50,7 @@ def bag_change_hook(store, bag):
     any_key = container_namespace_key(ANY_NAMESPACE)
     bags_key = container_namespace_key(BAGS_NAMESPACE)
     bag_key = container_namespace_key('bags', bag_name)
-    logging.debug('%s bag change resetting namespace keys, %s, %s, %s',
+    LOGGER.debug('%s bag change resetting namespace keys, %s, %s, %s',
             __name__, any_key, bags_key, bag_key)
     top_store = get_store(store.environ['tiddlyweb.config'])
     top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
@@ -60,7 +63,7 @@ def recipe_change_hook(store, recipe):
     any_key = container_namespace_key(ANY_NAMESPACE)
     recipes_key = container_namespace_key(RECIPES_NAMESPACE)
     recipe_key = container_namespace_key('recipes', recipe_name)
-    logging.debug('%s: %s recipe change resetting namespace keys, %s, %s, %s',
+    LOGGER.debug('%s: %s recipe change resetting namespace keys, %s, %s, %s',
             store.storage, __name__, any_key, recipes_key, recipe_key)
     top_store = get_store(store.environ['tiddlyweb.config'])
     top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
@@ -73,7 +76,7 @@ def user_change_hook(store, user):
     any_key = container_namespace_key(ANY_NAMESPACE)
     users_key = container_namespace_key(USERS_NAMESPACE)
     user_key = container_namespace_key('users', user_name)
-    logging.debug('%s: %s user change resetting namespace keys, %s, %s, %s',
+    LOGGER.debug('%s: %s user change resetting namespace keys, %s, %s, %s',
             store.storage, __name__, any_key, users_key, user_key)
     top_store = get_store(store.environ['tiddlyweb.config'])
     top_store.storage.mc.set(any_key.encode('utf8'), '%s' % uuid.uuid4())
@@ -205,13 +208,13 @@ class Store(StorageInterface):
                         (cached_tiddler.bag,
                            cached_tiddler.title,
                            cached_tiddler.revision))
-            logging.debug('satisfying tiddler_get with cache %s:%s',
+            LOGGER.debug('satisfying tiddler_get with cache %s:%s',
                     tiddler.bag, tiddler.title)
             cached_tiddler.recipe = tiddler.recipe
             tiddler = cached_tiddler
         else:
             try:
-                logging.debug('satisfying tiddler_get with data %s:%s',
+                LOGGER.debug('satisfying tiddler_get with data %s:%s',
                         tiddler.bag, tiddler.title)
                 tiddler = self.cached_storage.tiddler_get(tiddler)
                 try:
@@ -345,7 +348,7 @@ class Store(StorageInterface):
         namespace = self.mc.get(namespace_key)
         if not namespace:
             namespace = '%s' % uuid.uuid4()
-            logging.debug('%s no namespace for %s, setting to %s', __name__,
+            LOGGER.debug('%s no namespace for %s, setting to %s', __name__,
                     namespace_key, namespace)
             self.mc.set(namespace_key.encode('utf8'), namespace)
         key = '/'.join([container, container_name])
