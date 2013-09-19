@@ -86,14 +86,17 @@ def user_change_hook(store, user):
 
 # Establish the hooks that will reset namespaces
 # These must be first on the list or weird things can happen.
-HOOKS['tiddler']['put'].insert(0, tiddler_change_hook)
-HOOKS['tiddler']['delete'].insert(0, tiddler_change_hook)
-HOOKS['bag']['put'].insert(0, bag_change_hook)
-HOOKS['bag']['delete'].insert(0, bag_change_hook)
-HOOKS['recipe']['put'].insert(0, recipe_change_hook)
-HOOKS['recipe']['delete'].insert(0, recipe_change_hook)
-HOOKS['user']['put'].insert(0, user_change_hook)
-HOOKS['user']['delete'].insert(0, user_change_hook)
+HOOK_TARGETS = {
+    'tiddler': tiddler_change_hook,
+    'bag': bag_change_hook,
+    'recipe': recipe_change_hook,
+    'user': user_change_hook
+}
+for entity in ['tiddler', 'bag', 'recipe', 'user']:
+    method = HOOK_TARGETS[entity]
+    for action in ['put', 'delete']:
+        if method not in HOOKS[entity][action]:
+            HOOKS[entity][action].insert(0, method)
 
 
 class Store(StorageInterface):
