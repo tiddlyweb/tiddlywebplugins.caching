@@ -12,7 +12,7 @@ from tiddlyweb.util import sha
 from tiddlywebplugins.utils import get_store
 
 
-__version__ = '0.9.17'
+__version__ = '0.9.18'
 
 
 ANY_NAMESPACE = 'any'
@@ -29,7 +29,7 @@ def container_namespace_key(container, container_name=''):
         key = '%s_namespace' % container
     else:
         key = '%s:%s_namespace' % (container, container_name)
-    return sha(key.encode('UTF-8', 'replace')).hexdigest()
+    return sha(key).hexdigest()
 
 
 def tiddler_change_hook(store, tiddler):
@@ -358,7 +358,7 @@ class Store(StorageInterface):
         if descendant is not None:
             key = key + '/%s' % descendant
         fullkey = '%s:%s:%s:%s' % (namespace, self.host, self.prefix, key)
-        return sha(fullkey.encode('UTF-8')).hexdigest()
+        return sha(fullkey).hexdigest()
 
     def _get(self, key):
         return self.mc.get(key)

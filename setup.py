@@ -2,7 +2,7 @@ AUTHOR = 'Chris Dent'
 AUTHOR_EMAIL = 'cdent@peermore.com'
 NAME = 'tiddlywebplugins.caching'
 DESCRIPTION = 'A wrapping store caching entities in memcached.'
-VERSION = '0.9.17' # duped from tiddlywebplugins/caching.py
+VERSION = '0.9.18' # duped from tiddlywebplugins/caching.py
 
 
 import os
@@ -22,7 +22,7 @@ setup(
     author_email = AUTHOR_EMAIL,
     platforms = 'Posix; MacOS X; Windows',
     install_requires = ['setuptools',
-        'tiddlyweb>=1.4.2',
+        'tiddlyweb>=2.0.0',
         'python-memcached',
         ],
     zip_safe = False
